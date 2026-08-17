@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Failed to bind properties under 'payment.timeout'
+org.springframework.boot.context.properties.ConfigurationPropertiesBindException: Failed to bind properties under payment.timeout
+	at com.example.PaymentProperties.bind(PaymentProperties.java:12)

@@ -1,0 +1,6 @@
+package dev.devdoctor.core.model;
+
+public enum RelationshipType {
+    SUPPORTS, CONTRADICTS, CAUSES, OBSERVED_AT, DERIVED_FROM, TESTED_BY, RULES_OUT,
+    CORRELATES_WITH, INTRODUCED_BY, DEPENDS_ON, VERIFIED_BY
+}

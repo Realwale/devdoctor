@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] PostgreSQL password authentication failed for user orders
+org.postgresql.util.PSQLException: password authentication failed for user orders
+	at com.example.DatabaseConfig.connect(DatabaseConfig.java:33)

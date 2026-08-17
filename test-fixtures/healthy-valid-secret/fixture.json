@@ -1,0 +1,1 @@
+{"name":"healthy-valid-secret","log":"application.log","healthy":true,"environment":{"FONU_API_KEY":"HealthyCanarySecret123"},"secretCanaries":["HealthyCanarySecret123"]}

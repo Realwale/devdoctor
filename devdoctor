@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+JAR="$SCRIPT_DIR/devdoctor-cli/target/devdoctor.jar"
+JAVA_BIN=java
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  JAVA_BIN="$JAVA_HOME/bin/java"
+fi
+if [ ! -f "$JAR" ]; then
+  echo "DevDoctor is not built. Run ./mvnw -q package first." >&2
+  exit 1
+fi
+exec "$JAVA_BIN" -jar "$JAR" "$@"

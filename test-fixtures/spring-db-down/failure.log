@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] PostgreSQL connection refused at jdbc:postgresql://db.invalid:5432/orders
+org.postgresql.util.PSQLException: Connection refused
+	at com.example.DatabaseConfig.connect(DatabaseConfig.java:33)

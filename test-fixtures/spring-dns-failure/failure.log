@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] DNS resolution failed
+java.net.UnknownHostException: database.internal.invalid
+	at com.example.Client.connect(Client.java:29)

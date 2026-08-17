@@ -1,0 +1,1 @@
+{"name":"spring-missing-env","log":"failure.log","expectedRuleId":"CFG-01","healthy":false,"secretCanaries":[]}

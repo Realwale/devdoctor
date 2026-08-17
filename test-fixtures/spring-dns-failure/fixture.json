@@ -1,0 +1,1 @@
+{"name":"spring-dns-failure","log":"failure.log","expectedRuleId":"NET-01","healthy":false,"secretCanaries":[]}

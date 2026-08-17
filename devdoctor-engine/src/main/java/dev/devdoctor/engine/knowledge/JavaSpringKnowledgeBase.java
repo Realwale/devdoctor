@@ -1,0 +1,52 @@
+package dev.devdoctor.engine.knowledge;
+
+import dev.devdoctor.core.model.FailureClassification;
+import java.util.List;
+
+import static dev.devdoctor.core.model.FailureClassification.*;
+
+/** Declarative, reviewable V1 signatures. Rules generate hypotheses; correlation decides conclusions. */
+public final class JavaSpringKnowledgeBase {
+    public List<DiagnosticSignature> signatures() { return List.of(
+        s("JVM-01", "Runtime Java is too old for the class file", List.of("UnsupportedClassVersionError"), List.of(JVM, STARTUP), List.of("java-version"), "Run the application with the Java version used to compile it.", true),
+        s("JVM-02", "JVM memory exhaustion", List.of("OutOfMemoryError"), List.of(JVM, RUNTIME), List.of("java-version"), "Measure the exhausted memory area and correct the leak or validated memory limit.", false),
+        s("DEP-01", "Required runtime class is absent", List.of("ClassNotFoundException"), List.of(DEPENDENCY, STARTUP), List.of("dependency-version", "class-availability"), "Restore the required runtime dependency and verify the resolved classpath.", false),
+        s("DEP-02", "Runtime class definition is unavailable", List.of("NoClassDefFoundError"), List.of(DEPENDENCY, STARTUP), List.of("dependency-version", "class-availability"), "Inspect the deepest cause and runtime classpath; correct a missing dependency or static initialization failure.", false),
+        s("DEP-03", "Runtime dependency version mismatch", List.of("NoSuchMethodError"), List.of(DEPENDENCY, RUNTIME), List.of("dependency-version"), "Remove the incompatible override and align the dependency with the framework BOM.", false),
+        s("SPR-01", "Spring bean creation failed", List.of("BeanCreationException"), List.of(SPRING_CONTEXT, STARTUP), List.of(), "Correct the deepest bean dependency or configuration cause; the wrapper exception is not itself the root cause.", false),
+        s("SPR-02", "Required Spring bean is not defined", List.of("NoSuchBeanDefinitionException|No qualifying bean"), List.of(SPRING_CONTEXT, STARTUP), List.of(), "Correct component discovery, conditions, or the missing bean definition.", false),
+        s("SPR-03", "Spring configuration binding rejected a value", List.of("org\\.springframework\\.boot\\.context\\.properties\\.(?:bind\\.)?BindException|ConfigurationPropertiesBindException|Failed to bind properties"), List.of(CONFIGURATION, SPRING_CONTEXT, STARTUP), List.of(), "Correct the named property's shape or converter and restart.", false),
+        s("SPR-04", "Spring bean dependency cycle", List.of("circular reference|dependencies form a cycle|BeanCurrentlyInCreationException"), List.of(SPRING_CONTEXT, STARTUP), List.of(), "Break the dependency cycle rather than enabling circular references globally.", true),
+        s("SPR-05", "Spring application context startup failure", List.of("ApplicationContextException|APPLICATION FAILED TO START"), List.of(SPRING_CONTEXT, STARTUP), List.of(), "Resolve the deepest supported startup hypothesis.", false),
+        s("DB-01", "Database endpoint refused the connection", List.of("(?i)(jdbc:|postgres|mysql|database)", "(?i)connection refused"), List.of(DATABASE, NETWORK), List.of("dns-resolution", "tcp-connectivity"), "Start the configured database or correct its host/port after verifying the intended endpoint.", false),
+        s("DB-02", "Database authentication failed", List.of("(?i)(password authentication failed|access denied for user|authentication failed)"), List.of(DATABASE, AUTHENTICATION), List.of("tcp-connectivity"), "Correct the credential at its source; do not print or persist it.", true),
+        s("DB-03", "Configured database does not exist", List.of("(?i)(unknown database|database .+ does not exist)"), List.of(DATABASE, CONFIGURATION), List.of("tcp-connectivity"), "Correct or create the intended database through an authorized operational workflow.", true),
+        s("DB-04", "Database connection pool is exhausted", List.of("(?i)(connection is not available|pool.*timed out|timeout.*waiting.*connection)"), List.of(DATABASE, RUNTIME), List.of("tcp-connectivity"), "Measure connection use/leaks and validate pool sizing; do not increase limits without evidence.", false),
+        s("DB-05", "Flyway migration checksum changed", List.of("(?i)flyway", "(?i)checksum mismatch"), List.of(MIGRATION, DATABASE), List.of(), "Restore the applied migration or follow an authorized Flyway repair process after review.", true),
+        s("DB-06", "Flyway migration validation failed", List.of("(?i)flyway", "(?i)validation failed|validate failed"), List.of(MIGRATION, DATABASE), List.of(), "Resolve the specific migration validation difference.", false),
+        s("NET-01", "Hostname cannot be resolved", List.of("(?i)(unknownhostexception|name or service not known|nodename nor servname)"), List.of(NETWORK), List.of("dns-resolution"), "Correct the hostname or DNS configuration and rerun the resolution probe.", false),
+        s("NET-02", "Remote endpoint refused the TCP connection", List.of("(?i)connection refused"), List.of(NETWORK), List.of("dns-resolution", "tcp-connectivity"), "Verify the intended service is listening at the configured host and port.", false),
+        s("NET-03", "Connection attempt timed out", List.of("(?i)(connect timed out|connection timeout|sockettimeoutexception)"), List.of(NETWORK), List.of("dns-resolution", "tcp-connectivity"), "Verify routing, firewall, endpoint health, and timeout configuration in that order.", false),
+        s("NET-04", "TLS certificate validation failed", List.of("(?i)(pkix path building failed|sslhandshakeexception|certificate_unknown)"), List.of(NETWORK, HTTP), List.of("dns-resolution", "tcp-connectivity"), "Install the correct trust chain or correct the endpoint; do not disable certificate validation.", true),
+        s("HTTP-01", "Secret contains trailing newline and becomes an invalid HTTP header value", List.of("(?i)(invalid|validation failed).*(header)|header.*(?i)(invalid|validation failed)", "trailing newline"), List.of(HTTP, CONFIGURATION), List.of("environment-whitespace"), "Correct the secret at its source; stripping is only a defensive temporary measure.", true),
+        s("HTTP-02", "Configured URL is malformed", List.of("(?i)(malformedurlexception|invalid url|uri is not absolute|illegal character in.*url)"), List.of(HTTP, CONFIGURATION), List.of(), "Correct the complete configured URL and verify it parses before retrying.", true),
+        s("HTTP-03", "HTTP client request timed out", List.of("(?i)(http|webclient|resttemplate)", "(?i)(read timed out|response timeout|timeoutexception)"), List.of(HTTP, NETWORK), List.of("dns-resolution", "tcp-connectivity"), "Measure the failing request phase and fix endpoint latency or a validated timeout.", false),
+        s("INF-01", "Configured application port is already occupied", List.of("(?i)(port .*already in use|address already in use|failed to bind.*(?:port|address)|(?:port|address).*failed to bind)"), List.of(STARTUP, CONFIGURATION), List.of("port-owner"), "Stop or reconfigure the intended conflicting process through an authorized workflow.", false),
+        s("INF-02", "Required Redis endpoint is unavailable", List.of("(?i)redis", "(?i)(connection refused|unable to connect|connection failure)"), List.of(REDIS, NETWORK), List.of("redis-reachability"), "Start Redis or correct its endpoint after confirming the feature requires it.", false),
+        s("INF-03", "Required Kafka broker is unavailable", List.of("(?i)kafka|bootstrap.servers", "(?i)(broker.*unavailable|connection.*could not be established|timed out)"), List.of(KAFKA, NETWORK), List.of("tcp-connectivity"), "Restore or correct the configured bootstrap broker endpoint.", false),
+        s("INF-04", "Docker daemon is unavailable", List.of("(?i)(cannot connect to the docker daemon|docker daemon is not running)"), List.of(DOCKER), List.of("docker-daemon"), "Start or select the intended Docker daemon through the platform's authorized controls.", true),
+        s("INF-05", "Required Docker Compose service is stopped", List.of("(?i)(docker|compose)", "(?i)(service .*stopped|exited \\([1-9]|is not running)"), List.of(DOCKER), List.of("docker-service-state"), "Inspect the service logs and start it through an authorized workflow after correcting its failure.", false),
+        s("INF-06", "Container uses localhost for a separate service", List.of("(?i)(docker|container|compose)", "localhost:\\d+", "(?i)(connection refused|unavailable)"), List.of(DOCKER, NETWORK, CONFIGURATION), List.of("docker-service-state", "tcp-connectivity"), "Use the Compose service DNS name instead of localhost from the application container.", true),
+        s("CFG-01", "Required environment variable is missing", List.of("(?i)(environment|variable|placeholder).*(missing|not found|could not resolve)| is missing"), List.of(CONFIGURATION, STARTUP), List.of("environment-presence"), "Define the required value in the intended environment without logging it.", true),
+        s("CFG-02", "Required configuration property is blank", List.of("(?i)(must not be blank|property.*blank|value.*blank)"), List.of(CONFIGURATION), List.of(), "Provide a valid non-blank value at the authoritative configuration source.", false),
+        s("CFG-03", "Configuration property has an invalid shape", List.of("(?i)(failed to convert|cannot be cast|malformed property|invalid value for property)"), List.of(CONFIGURATION), List.of(), "Correct the property's type or syntax at its source.", false),
+        s("CFG-04", "Secret value contains trailing whitespace", List.of("trailingWhitespace=true|trailing newline"), List.of(CONFIGURATION), List.of("environment-whitespace"), "Correct whitespace in the secret source and re-inject it.", false),
+        s("CFG-05", "Incorrect Spring profile is active", List.of("(?i)(no active profile|profile.*not active|incorrect profile)"), List.of(CONFIGURATION, STARTUP), List.of(), "Activate the intended profile and verify its configuration sources are loaded.", false)
+    ); }
+
+    private DiagnosticSignature s(String id, String title, List<String> patterns, List<FailureClassification> classes,
+                                  List<String> probes, String remediation, boolean causal) {
+        return new DiagnosticSignature(id, title, title, patterns, classes, probes, remediation,
+                "Repeat the failing action and confirm the original failure and its discriminating evidence are absent.", causal);
+    }
+}

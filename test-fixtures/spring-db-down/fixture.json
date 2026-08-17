@@ -1,0 +1,1 @@
+{"name":"spring-db-down","log":"failure.log","expectedRuleId":"DB-01","healthy":false,"secretCanaries":[]}

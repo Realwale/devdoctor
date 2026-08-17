@@ -1,0 +1,5 @@
+services:
+  app:
+    image: devdoctor-fixture-app
+  postgres:
+    image: postgres:16

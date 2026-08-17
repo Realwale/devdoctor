@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Redis connection refused at redis://redis.invalid:6379
+io.lettuce.core.RedisConnectionException: Unable to connect: connection refused
+	at com.example.RedisConfig.connect(RedisConfig.java:24)

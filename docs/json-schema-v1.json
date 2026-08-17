@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devdoctor.dev/schema/diagnostic-session-1.0.json",
+  "title": "DevDoctor diagnostic session",
+  "type": "object",
+  "required": ["schemaVersion", "diagnosticId", "startedAt", "failure", "project", "evidence", "hypotheses", "probes", "rootCauses", "remediations", "verification", "graph"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "diagnosticId": {"type": "string", "pattern": "^DD-"},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "failure": {"type": "object"},
+    "project": {"type": "object"},
+    "evidence": {"type": "array", "items": {"type": "object", "required": ["id", "type", "source", "summary", "strength", "sensitivity", "collectedAt"]}},
+    "hypotheses": {"type": "array", "items": {"type": "object", "required": ["id", "title", "status", "confidence", "supportingEvidence", "contradictingEvidence"]}},
+    "probes": {"type": "array", "items": {"type": "object"}},
+    "rootCauses": {"type": "array", "items": {"type": "object"}},
+    "remediations": {"type": "array", "items": {"type": "object"}},
+    "verification": {"type": "array", "items": {"type": "object"}},
+    "graph": {"type": "object", "required": ["nodes", "edges"]}
+  },
+  "additionalProperties": false
+}

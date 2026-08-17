@@ -1,0 +1,11 @@
+target/
+*.log
+!test-fixtures/**/*.log
+.idea/
+.vscode/
+.DS_Store
+.devdoctor/
+outputs/
+work/
+test-fixtures/**/target/
+test-fixtures/**/build/

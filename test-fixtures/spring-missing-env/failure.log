@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Required environment variable PAYMENT_API_KEY is missing
+java.lang.IllegalStateException: Required environment variable PAYMENT_API_KEY is missing
+	at com.example.PaymentConfig.load(PaymentConfig.java:18)

@@ -1,0 +1,6 @@
+package dev.devdoctor.core.model;
+
+public enum GraphNodeType {
+    FAILURE, EVIDENCE, HYPOTHESIS, PROBE, SOURCE, CONFIGURATION, DEPENDENCY,
+    ENVIRONMENT, REMEDIATION, VERIFICATION
+}

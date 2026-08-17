@@ -1,0 +1,4 @@
+2026-08-16T10:00:00Z ERROR [main] Request construction failed
+java.lang.IllegalArgumentException: Validation failed for header 'x-fonu-api-key'
+	at com.example.FonuClientConfig.configure(FonuClientConfig.java:47)
+	at io.netty.handler.codec.DefaultHeaders.set(DefaultHeaders.java:1019)

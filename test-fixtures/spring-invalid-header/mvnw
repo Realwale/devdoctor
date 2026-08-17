@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+FIXTURE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$FIXTURE_DIR/../../mvnw" -f "$FIXTURE_DIR/pom.xml" "$@"

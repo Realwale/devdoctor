@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Class version failure
+java.lang.UnsupportedClassVersionError: App has been compiled by a more recent version of the Java Runtime
+	at com.example.App.main(App.java:8)

@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] APPLICATION FAILED TO START
+java.net.BindException: Port 8080 already in use
+	at com.example.Server.start(Server.java:21)

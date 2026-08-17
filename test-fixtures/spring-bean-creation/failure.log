@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Application context startup failed
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name paymentService
+	at com.example.PaymentConfig.paymentService(PaymentConfig.java:27)

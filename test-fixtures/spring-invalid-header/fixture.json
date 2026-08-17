@@ -1,0 +1,1 @@
+{"name":"spring-invalid-header","log":"failure.log","expectedRuleId":"HTTP-01","healthy":false,"environment":{"FONU_API_KEY":"CanaryHeaderSecret123456789\n"},"secretCanaries":["CanaryHeaderSecret123456789"]}

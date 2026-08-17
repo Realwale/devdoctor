@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Application container in Docker Compose cannot reach PostgreSQL service: jdbc:postgresql://localhost:5432/orders connection refused; service postgres is available separately
+org.postgresql.util.PSQLException: Connection refused to localhost:5432
+	at com.example.DatabaseConfig.connect(DatabaseConfig.java:33)

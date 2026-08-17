@@ -1,0 +1,1 @@
+{"name":"spring-invalid-url","log":"failure.log","expectedRuleId":"HTTP-02","healthy":false,"secretCanaries":[]}

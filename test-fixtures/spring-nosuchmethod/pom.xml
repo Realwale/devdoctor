@@ -1,0 +1,1 @@
+<project><modelVersion>4.0.0</modelVersion><groupId>fixture</groupId><artifactId>nosuchmethod</artifactId><version>1</version><properties><spring-boot.version>3.3.8</spring-boot.version></properties><dependencies><dependency><groupId>io.lettuce</groupId><artifactId>lettuce-core</artifactId><version>5.3.7.RELEASE</version></dependency></dependencies></project>

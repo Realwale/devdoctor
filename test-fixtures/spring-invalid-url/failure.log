@@ -1,0 +1,3 @@
+2026-08-16T10:00:00Z ERROR [main] Invalid URL configured for billing
+java.net.MalformedURLException: no protocol: billing.internal/v1
+	at com.example.BillingClient.create(BillingClient.java:44)
