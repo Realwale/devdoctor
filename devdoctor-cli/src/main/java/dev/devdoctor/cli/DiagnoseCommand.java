@@ -23,14 +23,26 @@ final class DiagnoseCommand implements Callable<Integer> {
     @Option(names = "--json", description = "Emit versioned machine-readable JSON.") boolean json;
     @Option(names = "--verbose", description = "Include probe and graph details.") boolean verbose;
     @Option(names = "--no-save", description = "Do not save the sanitized diagnostic session.") boolean noSave;
-    @Option(names = "--timeout", defaultValue = "30", description = "Explicit command timeout in seconds.") int timeoutSeconds;
+    @Option(names = "--no-auto-command", description = "Do not run detected Maven/Gradle tests when no command or log is supplied.") boolean noAutoCommand;
+    @Option(names = "--timeout", defaultValue = "120", description = "Build command timeout in seconds.") int timeoutSeconds;
     @Option(names = "--output-limit", defaultValue = "1000000", description = "Maximum captured bytes per input stream.") int outputLimit;
     @Option(names = "--project", defaultValue = ".", description = "Project root.") Path project;
 
     public Integer call() {
         try {
-            Path root = project.toAbsolutePath().normalize(); String logText = readBounded(log, outputLimit);
-            var request = new DiagnosticRequest(root, command, logText, System.getenv(), offline, ProbeSafety.SAFE_ACTIVE, Duration.ofSeconds(Math.max(1, timeoutSeconds)), outputLimit);
+            Path root = project.toAbsolutePath().normalize();
+            String logText = readBounded(log, outputLimit);
+            String effectiveCommand = command;
+            if ((effectiveCommand == null || effectiveCommand.isBlank()) && log == null && !noAutoCommand) {
+                var automatic = new AutomaticCommandResolver().resolve(root);
+                if (automatic.isPresent()) {
+                    effectiveCommand = automatic.get().command();
+                    System.err.println("DevDoctor: no command or log supplied; running detected "
+                            + automatic.get().description() + ": " + effectiveCommand);
+                }
+            }
+            var request = new DiagnosticRequest(root, effectiveCommand, logText, System.getenv(), offline,
+                    ProbeSafety.SAFE_ACTIVE, Duration.ofSeconds(Math.max(1, timeoutSeconds)), outputLimit);
             var session = new DiagnosticEngine().diagnose(request);
             if (json) System.out.println(new DiagnosticJson().write(session)); else new TerminalReport().write(session, new PrintWriter(System.out), verbose);
             if (!noSave) new SessionStore().save(root, session);

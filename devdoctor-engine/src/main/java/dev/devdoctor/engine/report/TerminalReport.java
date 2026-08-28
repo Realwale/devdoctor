@@ -8,7 +8,15 @@ public final class TerminalReport {
         out.println("DEVDOCTOR"); out.println("Diagnostic ID: " + session.diagnosticId()); out.println();
         section(out, "FAILURE"); out.println(session.failure().summary());
         if (session.rootCauses().isEmpty()) {
-            out.println(); out.println(session.failure().summary().equals("NO FAILURE DETECTED") ? "NO FAILURE DETECTED" : "NO HIGH-CONFIDENCE ROOT CAUSE FOUND");
+            out.println();
+            if (session.failure().summary().equals("NO FAILURE INPUT AVAILABLE")) {
+                out.println("DevDoctor did not run a command or find a diagnostic log.");
+                out.println("Run this from a Maven/Gradle project, or pass --command or --log explicitly.");
+            } else if (session.failure().summary().equals("NO FAILURE DETECTED")) {
+                out.println("The observed command and log evidence completed without a failure.");
+            } else {
+                out.println("FAILURE CONFIRMED, BUT NO HIGH-CONFIDENCE ROOT CAUSE FOUND");
+            }
             if (!session.hypotheses().isEmpty()) { out.println(); out.println("Leading hypotheses:"); session.hypotheses().stream().limit(3).forEach(h -> out.println("  " + h.id() + " " + h.title() + " - " + h.status() + " / " + h.confidence())); }
         } else {
             section(out, "ROOT CAUSE"); RootCauseCandidate root = session.rootCauses().getFirst(); out.println(root.title()); out.println("Confidence: " + root.confidence());

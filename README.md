@@ -5,10 +5,13 @@
 ```bash
 export JAVA_HOME=/path/to/jdk-21
 ./mvnw -q clean verify
+./devdoctor diagnose
 ./devdoctor diagnose --log application.log
 ./devdoctor diagnose --command "./mvnw test"
 ./devdoctor diagnose --json
 ```
+
+When no `--command` or `--log` is supplied, `devdoctor diagnose` now runs the detected Maven or Gradle test command and diagnoses its exit code and bounded output. Use `--no-auto-command` when you only want already-available evidence; DevDoctor will report that no failure input was observed instead of claiming the project is healthy.
 
 DevDoctor observes a failure, gathers sanitized evidence, generates competing hypotheses, runs safe diagnostic probes, rules out explanations, and emits an auditable diagnostic graph. It is an offline-first diagnostic engine—not a coding agent, chatbot, repair tool, or monitoring service.
 

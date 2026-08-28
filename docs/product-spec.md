@@ -10,11 +10,12 @@ V1 serves Java 17/21 and Spring Boot developers using Maven or Gradle. Supported
 
 ## User journeys
 
-* `devdoctor diagnose` inspects an existing project and available failures.
+* `devdoctor diagnose` automatically runs the detected Maven/Gradle test command when no explicit command or log is supplied, then diagnoses the captured exit code and output.
 * `devdoctor diagnose --command "./mvnw test"` captures bounded output, exit code, and duration before diagnosis.
 * `devdoctor diagnose --log application.log` analyzes a supplied log.
 * `--offline` disables optional external reasoning; deterministic diagnosis remains complete.
 * `--json` emits schema-versioned, evidence-linked output.
+* `--no-auto-command` disables automatic build execution; absence of command/log evidence is reported as unknown, never healthy.
 * `evidence E-001` and `hypothesis H-001` explain provenance and reasoning from a locally saved sanitized session.
 * `benchmark` evaluates known broken and healthy fixtures without fabricating competitor results.
 

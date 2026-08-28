@@ -34,15 +34,18 @@ public final class DiagnosticEngine {
                 "Project profile collected", EvidenceStrength.HIGH, Sensitivity.INTERNAL, started, Map.of("profile", profile)));
 
         StringBuilder failureText = new StringBuilder();
+        CommandCapture commandCapture = null;
         if (!request.command().isBlank()) {
-            CommandCapture capture = new BoundedCommandRunner(redactor, request.commandTimeout(), request.outputLimit()).run(root, request.command());
-            failureText.append(capture.stdout()).append('\n').append(capture.stderr());
+            commandCapture = new BoundedCommandRunner(redactor, request.commandTimeout(), request.outputLimit()).run(root, request.command());
+            failureText.append(commandCapture.stdout()).append('\n').append(commandCapture.stderr());
             evidence.add(new Evidence("E-COMMAND", EvidenceType.COMMAND, new EvidenceSource("COMMAND", "explicit-user-command", Map.of()),
-                    "Command exited with code " + capture.exitCode() + (capture.timedOut() ? " after timing out" : ""),
-                    capture.exitCode() == 0 ? EvidenceStrength.MEDIUM : EvidenceStrength.HIGH, Sensitivity.INTERNAL, started,
-                    Map.of("exitCode", capture.exitCode(), "timedOut", capture.timedOut(), "truncated", capture.truncated(), "durationMillis", capture.duration().toMillis(), "stdout", capture.stdout(), "stderr", capture.stderr())));
+                    "Command exited with code " + commandCapture.exitCode() + (commandCapture.timedOut() ? " after timing out" : ""),
+                    commandCapture.exitCode() == 0 ? EvidenceStrength.MEDIUM : EvidenceStrength.HIGH, Sensitivity.INTERNAL, started,
+                    Map.of("exitCode", commandCapture.exitCode(), "timedOut", commandCapture.timedOut(), "truncated", commandCapture.truncated(),
+                            "durationMillis", commandCapture.duration().toMillis(), "stdout", commandCapture.stdout(), "stderr", commandCapture.stderr())));
         }
-        String suppliedLog = request.logText().isBlank() ? readDefaultLog(root) : request.logText();
+        String suppliedLog = request.logText();
+        if (suppliedLog.isBlank() && request.command().isBlank()) suppliedLog = readDefaultLog(root);
         if (!suppliedLog.isBlank()) {
             String safeLog = redactor.redact(limit(suppliedLog, request.outputLimit()));
             failureText.append('\n').append(safeLog);
@@ -54,10 +57,17 @@ public final class DiagnosticEngine {
         String safeFailureText = redactor.redact(failureText.toString());
         JavaStackTraceParser stackParser = new JavaStackTraceParser(); ParsedStackTrace trace = stackParser.parse(safeFailureText);
         ParsedException rootException = trace.rootCause();
-        boolean detected = isFailureDetected(safeFailureText, evidence);
-        String exceptionClass = rootException == null ? "" : rootException.exceptionClass();
-        String message = rootException == null ? firstFailureLine(safeFailureText) : rootException.message();
-        Failure failure = new Failure("F-1", detected ? summary(exceptionClass, message) : "NO FAILURE DETECTED", exceptionClass, message, List.of(), started);
+        boolean inputObserved = commandCapture != null || !suppliedLog.isBlank();
+        boolean detected = isFailureDetected(commandCapture, suppliedLog);
+        String exceptionClass = detected && rootException != null ? rootException.exceptionClass() : "";
+        String message = detected ? (rootException == null ? firstFailureLine(safeFailureText) : rootException.message()) : "";
+        String failureSummary = !inputObserved ? "NO FAILURE INPUT AVAILABLE"
+                : !detected ? "NO FAILURE DETECTED"
+                : rootException != null ? summary(exceptionClass, message)
+                : commandCapture != null && (commandCapture.exitCode() != 0 || commandCapture.timedOut())
+                    ? commandFailureSummary(commandCapture, message)
+                    : summary(exceptionClass, message);
+        Failure failure = new Failure("F-1", failureSummary, exceptionClass, message, List.of(), started);
         if (rootException != null) evidence.add(new Evidence("E-STACK", EvidenceType.STACK_TRACE, new EvidenceSource("STACK_TRACE", exceptionClass, Map.of()),
                 "Root exception: " + exceptionClass + (message.isBlank() ? "" : ": " + message), EvidenceStrength.VERY_HIGH, Sensitivity.INTERNAL, started,
                 Map.of("thread", trace.thread(), "causeDepth", trace.causeChain().size(), "applicationFrames", trace.applicationFrames())));
@@ -113,9 +123,25 @@ public final class DiagnosticEngine {
         return score;
     }
     private String newId() { return "DD-" + java.time.LocalDate.now().toString().replace("-", "") + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT); }
-    private boolean isFailureDetected(String text, List<Evidence> evidence) { if (evidence.stream().anyMatch(e -> e.type() == EvidenceType.COMMAND && ((Number)e.metadata().get("exitCode")).intValue() != 0)) return true; return text.matches("(?is).*(exception|error|failed|failure|connection refused|timed out).*" ); }
+    private boolean isFailureDetected(CommandCapture command, String logText) {
+        if (command != null && (command.exitCode() != 0 || command.timedOut())) return true;
+        return !logText.isBlank() && logText.matches("(?is).*(exception|error|failed|failure|connection refused|timed out).*" );
+    }
     private String summary(String type, String message) { if (!type.isBlank()) return type + (message.isBlank() ? "" : ": " + message); return message.isBlank() ? "Software failure observed" : message; }
-    private String firstFailureLine(String text) { return text.lines().map(String::trim).filter(s -> !s.isBlank()).filter(s -> s.matches("(?i).*(exception|error|failed|failure|refused|timed out).*" )).findFirst().orElse("Software failure observed"); }
+    private String commandFailureSummary(CommandCapture command, String message) {
+        if (command.timedOut()) return "Command timed out after " + command.duration().toSeconds() + " seconds";
+        String detail = message.equals("Software failure observed") ? firstMeaningfulLine(command.stderr(), command.stdout()) : message;
+        return "Command failed with exit code " + command.exitCode() + (detail.isBlank() ? "" : ": " + detail);
+    }
+    private String firstFailureLine(String text) { return text.lines().map(String::trim).filter(s -> !s.isBlank()).filter(s -> s.matches("(?i).*(exception|error|failed|failure|refused|timed out).*" )).findFirst().map(this::limitSummary).orElse("Software failure observed"); }
+    private String firstMeaningfulLine(String... texts) {
+        for (String text : texts) {
+            String line = text.lines().map(String::trim).filter(s -> !s.isBlank()).findFirst().orElse("");
+            if (!line.isBlank()) return limitSummary(line);
+        }
+        return "";
+    }
+    private String limitSummary(String value) { return value.length() <= 300 ? value : value.substring(0, 297) + "..."; }
     private String readDefaultLog(Path root) { Path log = root.resolve("application.log"); try { return Files.isRegularFile(log) ? Files.readString(log, StandardCharsets.UTF_8) : ""; } catch (IOException ignored) { return ""; } }
     private String limit(String value, int max) { return value.length() <= max ? value : value.substring(0, max); }
 }

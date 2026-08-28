@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 public final class SignatureRuleEngine {
     public List<MatchedHypothesis> evaluate(List<DiagnosticSignature> signatures, List<Evidence> evidence) {
         List<MatchedHypothesis> result = new ArrayList<>(); int sequence = 1;
+        Set<String> observedFailureIds = new LinkedHashSet<>();
+        evidence.stream().filter(this::isFailureObservation).map(Evidence::id).forEach(observedFailureIds::add);
         for (DiagnosticSignature signature : signatures) {
             Set<String> matchedIds = new LinkedHashSet<>(); boolean matches = true;
             for (String expression : signature.requiredPatterns()) {
@@ -20,7 +22,8 @@ public final class SignatureRuleEngine {
                 if (matched.isEmpty()) { matches = false; break; }
                 matched.forEach(e -> matchedIds.add(e.id()));
             }
-            if (matches) {
+            boolean linkedToObservedFailure = matchedIds.stream().anyMatch(observedFailureIds::contains);
+            if (matches && linkedToObservedFailure) {
                 String hypothesisId = "H-" + String.format(Locale.ROOT, "%03d", sequence++);
                 Hypothesis h = new Hypothesis(hypothesisId, signature.id(), signature.title(), signature.description(),
                         HypothesisStatus.UNTESTED, Confidence.VERY_LOW, List.copyOf(matchedIds), List.of(), signature.probeIds(), List.of());
@@ -31,6 +34,13 @@ public final class SignatureRuleEngine {
     }
 
     private String searchText(Evidence evidence) { return evidence.summary() + " " + evidence.metadata(); }
+    private boolean isFailureObservation(Evidence evidence) {
+        if (evidence.type() == EvidenceType.LOG || evidence.type() == EvidenceType.STACK_TRACE) return true;
+        if (evidence.type() != EvidenceType.COMMAND) return false;
+        Object exitCode = evidence.metadata().get("exitCode");
+        return Boolean.TRUE.equals(evidence.metadata().get("timedOut"))
+                || exitCode instanceof Number number && number.intValue() != 0;
+    }
     private boolean isDiagnosticInput(Evidence evidence) {
         return switch (evidence.type()) {
             case COMMAND, STACK_TRACE, LOG, CONFIGURATION, ENVIRONMENT, DEPENDENCY, PORT, DNS, TCP, DATABASE, REDIS, DOCKER, JVM -> true;

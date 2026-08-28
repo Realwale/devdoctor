@@ -2,12 +2,31 @@
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 JAR="$SCRIPT_DIR/devdoctor-cli/target/devdoctor.jar"
-JAVA_BIN=java
-if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-  JAVA_BIN="$JAVA_HOME/bin/java"
-fi
 if [ ! -f "$JAR" ]; then
   echo "DevDoctor is not built. Run ./mvnw -q package first." >&2
+  exit 1
+fi
+
+supports_java_21() {
+  [ -x "$1" ] && "$1" -XshowSettings:properties -version 2>&1 \
+    | grep -Eq 'java\.specification\.version = (21|2[2-9]|[3-9][0-9])'
+}
+
+JAVA_BIN=""
+if [ -n "${JAVA_HOME:-}" ] && supports_java_21 "$JAVA_HOME/bin/java"; then
+  JAVA_BIN="$JAVA_HOME/bin/java"
+fi
+if [ -z "$JAVA_BIN" ] && [ -x /usr/libexec/java_home ]; then
+  JAVA_21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)
+  if [ -n "$JAVA_21_HOME" ] && supports_java_21 "$JAVA_21_HOME/bin/java"; then
+    JAVA_BIN="$JAVA_21_HOME/bin/java"
+  fi
+fi
+if [ -z "$JAVA_BIN" ] && command -v java >/dev/null 2>&1 && supports_java_21 "$(command -v java)"; then
+  JAVA_BIN=$(command -v java)
+fi
+if [ -z "$JAVA_BIN" ]; then
+  echo "DevDoctor requires Java 21 or newer. Set JAVA_HOME to a compatible JDK." >&2
   exit 1
 fi
 exec "$JAVA_BIN" -jar "$JAR" "$@"

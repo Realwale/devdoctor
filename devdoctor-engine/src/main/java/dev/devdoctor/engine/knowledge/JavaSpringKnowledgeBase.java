@@ -8,7 +8,7 @@ import static dev.devdoctor.core.model.FailureClassification.*;
 /** Declarative, reviewable V1 signatures. Rules generate hypotheses; correlation decides conclusions. */
 public final class JavaSpringKnowledgeBase {
     public List<DiagnosticSignature> signatures() { return List.of(
-        s("JVM-01", "Runtime Java is too old for the class file", List.of("UnsupportedClassVersionError"), List.of(JVM, STARTUP), List.of("java-version"), "Run the application with the Java version used to compile it.", true),
+        s("JVM-01", "Runtime Java is too old for the class file", List.of("UnsupportedClassVersionError|has been compiled by a more recent version of the Java Runtime|class file version \\d+.+only recognizes class file versions"), List.of(JVM, STARTUP), List.of("java-version"), "Run the application with the Java version used to compile it.", true),
         s("JVM-02", "JVM memory exhaustion", List.of("OutOfMemoryError"), List.of(JVM, RUNTIME), List.of("java-version"), "Measure the exhausted memory area and correct the leak or validated memory limit.", false),
         s("DEP-01", "Required runtime class is absent", List.of("ClassNotFoundException"), List.of(DEPENDENCY, STARTUP), List.of("dependency-version", "class-availability"), "Restore the required runtime dependency and verify the resolved classpath.", false),
         s("DEP-02", "Runtime class definition is unavailable", List.of("NoClassDefFoundError"), List.of(DEPENDENCY, STARTUP), List.of("dependency-version", "class-availability"), "Inspect the deepest cause and runtime classpath; correct a missing dependency or static initialization failure.", false),
@@ -41,7 +41,9 @@ public final class JavaSpringKnowledgeBase {
         s("CFG-02", "Required configuration property is blank", List.of("(?i)(must not be blank|property.*blank|value.*blank)"), List.of(CONFIGURATION), List.of(), "Provide a valid non-blank value at the authoritative configuration source.", false),
         s("CFG-03", "Configuration property has an invalid shape", List.of("(?i)(failed to convert|cannot be cast|malformed property|invalid value for property)"), List.of(CONFIGURATION), List.of(), "Correct the property's type or syntax at its source.", false),
         s("CFG-04", "Secret value contains trailing whitespace", List.of("trailingWhitespace=true|trailing newline"), List.of(CONFIGURATION), List.of("environment-whitespace"), "Correct whitespace in the secret source and re-inject it.", false),
-        s("CFG-05", "Incorrect Spring profile is active", List.of("(?i)(no active profile|profile.*not active|incorrect profile)"), List.of(CONFIGURATION, STARTUP), List.of(), "Activate the intended profile and verify its configuration sources are loaded.", false)
+        s("CFG-05", "Incorrect Spring profile is active", List.of("(?i)(no active profile|profile.*not active|incorrect profile)"), List.of(CONFIGURATION, STARTUP), List.of(), "Activate the intended profile and verify its configuration sources are loaded.", false),
+        // Generic build signatures intentionally come last so a more specific causal diagnosis wins ties.
+        s("BLD-01", "Java source compilation failed", List.of("(?i)(compilation (?:error|failure|failed)|cannot find symbol|package .+ does not exist|incompatible types|error: .+\\.java)"), List.of(BUILD, COMPILATION), List.of(), "Fix the first compiler error, then rerun the same build command.", true)
     ); }
 
     private DiagnosticSignature s(String id, String title, List<String> patterns, List<FailureClassification> classes,
