@@ -19,15 +19,21 @@ Java 21 is required to build and run DevDoctor. The analyzed application may tar
 
 ## Install with Homebrew
 
-Build a checksum-pinned local release formula and install it:
+Install the checksum-pinned Intel macOS release from the repository tap:
 
 ```bash
-./packaging/build-homebrew-release.sh
-brew install --formula ./outputs/devdoctor.rb
+brew tap Realwale/devdoctor https://github.com/Realwale/devdoctor
+brew install Realwale/devdoctor/devdoctor
 devdoctor version
 ```
 
-This installs a self-contained Intel macOS build into Homebrew and exposes `devdoctor` through `/usr/local/bin`. Upgrade with `brew reinstall --formula ./outputs/devdoctor.rb` and remove it with `brew uninstall devdoctor`.
+This installs a self-contained Intel macOS build into Homebrew and exposes `devdoctor` through `/usr/local/bin`. Upgrade with `brew upgrade Realwale/devdoctor/devdoctor` and remove it with `brew uninstall devdoctor`.
+
+To build and test the formula locally while developing DevDoctor:
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 21) ./packaging/build-homebrew-release.sh
+```
 
 The Intel macOS package includes a minimized Java 21 runtime, so the installed command does not depend on `JAVA_HOME`, Xcode, or a separate JDK formula. See `packaging/homebrew/README.md` for local verification and public-tap publishing instructions.
 
