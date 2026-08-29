@@ -1,7 +1,7 @@
 # Privacy
 
-Default operation is local and offline-capable. DevDoctor sends no telemetry and no project data externally. Saved sessions contain only redacted evidence and are stored under the project `.devdoctor/` directory when persistence is requested. Users control deletion through normal filesystem tools.
+Default operation is local and offline-capable. DevDoctor sends no telemetry and the bundled OpenTelemetry agent has trace, metric, and log exporters disabled. Saved sessions under `.devdoctor/` contain redacted, bounded evidence only.
 
-Future external reasoning requires explicit consent and receives only a sanitized, size-limited context. Raw configuration values, environment values, credentials, source archives, and command output never enter that boundary.
+Outcome correlation excludes request/response bodies, headers, cookies, and query strings by construction. Exception messages and stacks can still contain sensitive text; a bounded owner-only JFR file may hold those fields temporarily, then the engine redacts them before persistence and deletes its temporary recording. An imported JFR file is not modified or deleted and must be handled as sensitive by its owner.
 
-Explicit HTTP reproduction keeps raw header values, request bodies, and query values out of diagnostic evidence. Evidence stores header names, a query-free URL, timing/status, and a bounded redacted response; response header values are not persisted. Inline `--header` and `--data` values can still appear in shell history or operating-system process arguments, so sensitive callers should prefer `--header-env` and `--data-file`.
+A local installation cannot read a remote server without a separately authorized evidence path. Future external reasoning requires explicit consent and can receive only sanitized context.

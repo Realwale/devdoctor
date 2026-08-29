@@ -2,10 +2,8 @@ package dev.devdoctor.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sun.net.httpserver.HttpServer;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,96 +12,78 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 class DiagnoseCommandTest {
-    @Test void bareDiagnoseRunsDetectedBuildAndReportsCompilationFailure(@TempDir Path root) throws Exception {
+    @Test void explicitCommandCanStillBeDiagnosed(@TempDir Path root) throws Exception {
         Files.writeString(root.resolve("pom.xml"), "<project><artifactId>broken</artifactId><version>1</version></project>");
-        Path wrapper = Files.writeString(root.resolve("mvnw"), """
-                #!/bin/sh
-                echo '[ERROR] COMPILATION ERROR'
-                echo '[ERROR] App.java:[7,13] cannot find symbol'
-                exit 1
-                """);
-        wrapper.toFile().setExecutable(true);
 
-        Captured result = execute("diagnose", "--project", root.toString(), "--offline", "--no-save");
+        Captured result = execute("diagnose", "--project", root.toString(), "--command",
+                "printf '[ERROR] COMPILATION ERROR\\n[ERROR] App.java:[7,13] cannot find symbol\\n'; exit 1",
+                "--offline", "--no-save");
 
         assertThat(result.exitCode()).isZero();
-        assertThat(result.stderr()).contains("running detected Maven test command: ./mvnw test");
-        assertThat(result.stdout()).contains("Java source compilation failed").doesNotContain("NO FAILURE DETECTED");
+        assertThat(result.stdout()).contains("Java source compilation failed");
     }
 
-    @Test void disablingAutomaticCommandNeverClaimsAnUnobservedProjectIsHealthy(@TempDir Path root) throws Exception {
-        Files.writeString(root.resolve("pom.xml"), "<project><artifactId>unknown</artifactId><version>1</version></project>");
+    @Test void diagnosisNeverRunsTheBuildImplicitly(@TempDir Path root) throws Exception {
+        Files.writeString(root.resolve("pom.xml"), "<project><artifactId>must-not-run</artifactId><version>1</version></project>");
+        Path marker = root.resolve("build-was-run");
+        Path wrapper = Files.writeString(root.resolve("mvnw"), "#!/bin/sh\ntouch '" + marker + "'\n");
+        wrapper.toFile().setExecutable(true);
 
-        Captured result = execute("diagnose", "--project", root.toString(), "--offline", "--no-save", "--no-auto-command");
+        Captured result = execute("diagnose", "--project", root.toString(), "--offline", "--no-save",
+                "--no-auto-runtime");
 
         assertThat(result.exitCode()).isEqualTo(2);
-        assertThat(result.stdout()).contains("NO FAILURE INPUT AVAILABLE", "did not run a command").doesNotContain("NO FAILURE DETECTED");
+        assertThat(result.stdout()).contains("NO FAILURE INPUT AVAILABLE");
+        assertThat(marker).doesNotExist();
+        assertThat(result.stderr()).doesNotContain("Maven", "mvnw", "test command");
     }
 
-    @Test void successfulAutomaticBuildExplicitlyDisclaimsRuntimeCoverage(@TempDir Path root) throws Exception {
+    @Test void successfulExplicitCommandIsScopedToOnlyThatEvidence(@TempDir Path root) throws Exception {
         Files.writeString(root.resolve("pom.xml"), "<project><artifactId>build-only</artifactId><version>1</version></project>");
-        Path wrapper = Files.writeString(root.resolve("mvnw"), """
-                #!/bin/sh
-                echo 'Tests run: 8, Failures: 0, Errors: 0'
-                echo 'BUILD SUCCESS'
-                exit 0
-                """);
-        wrapper.toFile().setExecutable(true);
 
-        Captured result = execute("diagnose", "--project", root.toString(), "--offline", "--no-save");
+        Captured result = execute("diagnose", "--project", root.toString(), "--command",
+                "printf 'BUILD SUCCESS\\n'", "--offline", "--no-save");
 
         assertThat(result.exitCode()).isZero();
-        assertThat(result.stdout()).contains("NO FAILURE REPRODUCED", "BUILD/TEST CHECK PASSED",
-                "Runtime and API behavior were not exercised", "not evidence that the application is healthy");
+        assertThat(result.stdout()).contains("NO FAILURE REPRODUCED", "applies only to the observed input")
+                .doesNotContain("application is healthy");
     }
 
-    @Test void replaysPostmanStyleHttpFailureAndDiagnosesResponse(@TempDir Path root) throws Exception {
-        Files.writeString(root.resolve("pom.xml"), "<project><artifactId>runtime-api</artifactId><version>1</version></project>");
-        Files.writeString(root.resolve("application.properties"), "runtime.token=${DEVDOCTOR_TEST_RUNTIME_TOKEN_X9}\n");
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/orders", exchange -> {
-            byte[] response = "Required environment variable DEVDOCTOR_TEST_RUNTIME_TOKEN_X9 is missing"
-                    .getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(500, response.length);
-            exchange.getResponseBody().write(response);
-            exchange.close();
-        });
-        server.start();
+    @Test void observesRunningJvmWithoutGeneratingOrReplayingRequests(@TempDir Path root) throws Exception {
+        Files.writeString(root.resolve("pom.xml"), "<project><artifactId>runtime-app</artifactId><version>1</version></project>");
+        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        Process fixture = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
+                CliRuntimeFailureFixture.class.getName()).redirectErrorStream(true).start();
         try {
-            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/orders";
+            Thread.sleep(500);
 
-            Captured result = execute("diagnose", "--project", root.toString(), "--url", url,
-                    "--method", "POST", "--header", "Authorization: Bearer postman-secret",
-                    "--data", "{}", "--offline", "--no-save");
+            Captured result = execute("diagnose", "--project", root.toString(), "--pid",
+                    Long.toString(fixture.pid()), "--observe-seconds", "2", "--offline", "--no-save");
 
-            assertThat(result.exitCode()).isZero();
-            assertThat(result.stdout()).contains("HTTP request returned status 500", "Required environment variable is missing")
-                    .doesNotContain("NO FAILURE REPRODUCED", "postman-secret");
+            assertThat(result.exitCode()).isEqualTo(2);
+            assertThat(result.stderr()).contains("observing JVM", "does not generate requests");
+            assertThat(result.stdout()).contains("RUNTIME EXCEPTION CANDIDATES OBSERVED",
+                    "IllegalArgumentException", "Runtime validation failed in application code",
+                    "candidates—not confirmed request failures");
         } finally {
-            server.stop(0);
+            fixture.destroyForcibly();
+            fixture.waitFor();
         }
     }
 
-    @Test void expectedHttpStatusIsScopedToOnlyTheSuppliedRequest(@TempDir Path root) throws Exception {
-        Files.writeString(root.resolve("pom.xml"), "<project><artifactId>runtime-api</artifactId><version>1</version></project>");
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/missing", exchange -> {
-            exchange.sendResponseHeaders(404, -1);
-            exchange.close();
-        });
-        server.start();
-        try {
-            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/missing";
+    @Test void runStartsAnExplicitApplicationCommandWithoutOwningItsTraffic(@TempDir Path root) throws Exception {
+        Captured result = execute("run", "--project", root.toString(), "--", "/usr/bin/true");
 
-            Captured result = execute("diagnose", "--project", root.toString(), "--url", url,
-                    "--expect-status", "404", "--offline", "--no-save");
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.stderr()).contains("runtime correlation enabled", "Postman", "another service",
+                "devdoctor diagnose");
+    }
 
-            assertThat(result.exitCode()).isZero();
-            assertThat(result.stdout()).contains("NO FAILURE REPRODUCED", "supplied HTTP request returned an expected status",
-                    "applies only to that request", "does not certify the whole application");
-        } finally {
-            server.stop(0);
-        }
+    @Test void topLevelHelpExposesRuntimeObservationWorkflow() throws Exception {
+        Captured result = execute("--help");
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.stdout()).contains("diagnose", "run");
     }
 
     private Captured execute(String... arguments) throws Exception {
@@ -123,5 +103,5 @@ class DiagnoseCommandTest {
         }
     }
 
-    private record Captured(int exitCode, String stdout, String stderr) {}
+    private record Captured(int exitCode, String stdout, String stderr) { }
 }

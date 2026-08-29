@@ -5,9 +5,9 @@
 class Devdoctor < Formula
   desc "Evidence-based root-cause diagnostics for software failures"
   homepage "https://github.com/Realwale/devdoctor"
-  url "https://github.com/Realwale/devdoctor/releases/download/v0.1.2/devdoctor-0.1.2-macos-x86_64.tar.gz"
-  version "0.1.2"
-  sha256 "b561f8946ecf13b77d3810f624abdd37804fd85a45e3b2a2904deb0585976834"
+  url "https://github.com/Realwale/devdoctor/releases/download/v0.2.0/devdoctor-0.2.0-macos-x86_64.tar.gz"
+  version "0.2.0"
+  sha256 "e036b47b77cda3c067d2a1da5eb8553957f63e79023897799b0519e6badbb6bb"
   license "Apache-2.0"
 
   depends_on :macos
@@ -15,7 +15,7 @@ class Devdoctor < Formula
   def install
     raise "This release was built for Intel Macs" unless Hardware::CPU.intel?
 
-    libexec.install "devdoctor.jar", "runtime"
+    libexec.install "devdoctor.jar", "devdoctor-agent.jar", "devdoctor-control-agent.jar", "runtime"
 
     java = libexec/"runtime/bin/java"
     (bin/"devdoctor").write <<~SH
@@ -25,7 +25,7 @@ class Devdoctor < Formula
   end
 
   test do
-    assert_match "DevDoctor 0.1.2", shell_output("#{bin}/devdoctor version")
+    assert_match "DevDoctor 0.2.0", shell_output("#{bin}/devdoctor version")
 
     (testpath/"application.log").write <<~LOG
       2026-08-17T00:00:00Z INFO [main] Application started successfully

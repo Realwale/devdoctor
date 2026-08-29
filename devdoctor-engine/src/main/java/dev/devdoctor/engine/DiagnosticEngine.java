@@ -38,33 +38,50 @@ public final class DiagnosticEngine {
         if (!request.command().isBlank()) {
             commandCapture = new BoundedCommandRunner(redactor, request.commandTimeout(), request.outputLimit()).run(root, request.command());
             failureText.append(commandCapture.stdout()).append('\n').append(commandCapture.stderr());
-            String commandOrigin = request.automaticCommand() ? "AUTOMATIC_BUILD" : "EXPLICIT";
-            evidence.add(new Evidence("E-COMMAND", EvidenceType.COMMAND, new EvidenceSource("COMMAND", commandOrigin, Map.of()),
+            evidence.add(new Evidence("E-COMMAND", EvidenceType.COMMAND, new EvidenceSource("COMMAND", "EXPLICIT", Map.of()),
                     "Command exited with code " + commandCapture.exitCode() + (commandCapture.timedOut() ? " after timing out" : ""),
                     commandCapture.exitCode() == 0 ? EvidenceStrength.MEDIUM : EvidenceStrength.HIGH, Sensitivity.INTERNAL, started,
                     Map.of("exitCode", commandCapture.exitCode(), "timedOut", commandCapture.timedOut(), "truncated", commandCapture.truncated(),
-                            "durationMillis", commandCapture.duration().toMillis(), "stdout", commandCapture.stdout(), "stderr", commandCapture.stderr(),
-                            "origin", commandOrigin)));
+                            "durationMillis", commandCapture.duration().toMillis(), "stdout", commandCapture.stdout(),
+                            "stderr", commandCapture.stderr(), "origin", "EXPLICIT")));
         }
-        HttpCapture httpCapture = null;
-        if (request.httpRequest() != null) {
-            httpCapture = new HttpRequestRunner(redactor, request.commandTimeout(), request.outputLimit()).run(request.httpRequest());
-            String httpSummary = httpEvidenceSummary(httpCapture);
-            failureText.append('\n').append(httpSummary).append('\n').append(httpCapture.responseBody()).append('\n').append(httpCapture.error());
-            evidence.add(new Evidence("E-HTTP", EvidenceType.HTTP,
-                    new EvidenceSource("HTTP", httpCapture.sanitizedUri(), Map.of("method", httpCapture.method())),
-                    httpSummary, httpCapture.failed() ? EvidenceStrength.VERY_HIGH : EvidenceStrength.HIGH,
+        JfrRuntimeObservation runtimeObservation = request.runtimeObservation();
+        if (runtimeObservation != null) {
+            String runtimeSummary = runtimeEvidenceSummary(runtimeObservation);
+            evidence.add(new Evidence("E-JVM-RUNTIME", EvidenceType.JVM,
+                    new EvidenceSource("JFR", runtimeObservation.source(),
+                            Map.of("processId", Long.toString(runtimeObservation.processId()))),
+                    runtimeSummary, runtimeObservation.hasOutcomeEvidence() ? EvidenceStrength.HIGH
+                            : runtimeObservation.hasExceptionCandidates() ? EvidenceStrength.MEDIUM : EvidenceStrength.HIGH,
                     Sensitivity.INTERNAL, started,
-                    Map.ofEntries(Map.entry("method", httpCapture.method()), Map.entry("uri", httpCapture.sanitizedUri()),
-                            Map.entry("statusCode", httpCapture.statusCode()), Map.entry("expectedStatusMin", httpCapture.expectedStatusMin()),
-                            Map.entry("expectedStatusMax", httpCapture.expectedStatusMax()), Map.entry("timedOut", httpCapture.timedOut()),
-                            Map.entry("truncated", httpCapture.truncated()), Map.entry("durationMillis", httpCapture.duration().toMillis()),
-                            Map.entry("responseBody", httpCapture.responseBody()), Map.entry("error", httpCapture.error()),
-                            Map.entry("requestHeaderNames", httpCapture.requestHeaderNames()),
-                            Map.entry("responseHeaderNames", httpCapture.responseHeaderNames()))));
+                    Map.ofEntries(Map.entry("source", runtimeObservation.source()),
+                            Map.entry("processId", runtimeObservation.processId()),
+                            Map.entry("exceptionEvents", runtimeObservation.exceptionEvents()),
+                            Map.entry("errorEvents", runtimeObservation.errorEvents()),
+                            Map.entry("droppedGroups", runtimeObservation.droppedGroups()),
+                            Map.entry("durationMillis", runtimeObservation.duration().toMillis()),
+                            Map.entry("exceptionGroups", runtimeObservation.exceptionGroups()),
+                            Map.entry("transactionEvents", runtimeObservation.transactionEvents()),
+                            Map.entry("failedTransactions", runtimeObservation.failedTransactions()),
+                            Map.entry("instrumentationStatus", runtimeObservation.instrumentationStatus()),
+                            Map.entry("captureError", runtimeObservation.captureError()),
+                            Map.entry("outcomeCorrelated", runtimeObservation.hasOutcomeEvidence()))));
+            if (runtimeObservation.hasCorrelatedFailure()) {
+                List<RuntimeTransactionGroup> failedGroups = runtimeObservation.transactionGroups().stream()
+                        .filter(RuntimeTransactionGroup::failed).toList();
+                evidence.add(new Evidence("E-RUNTIME-OUTCOME", EvidenceType.HTTP,
+                        new EvidenceSource("JFR_SPAN", runtimeObservation.source(),
+                                Map.of("processId", Long.toString(runtimeObservation.processId()))),
+                        "Application runtime observed " + runtimeObservation.failedTransactions()
+                                + " failed transaction outcomes", EvidenceStrength.VERY_HIGH, Sensitivity.INTERNAL,
+                        started, Map.of("failed", true, "outcomeCorrelated", true,
+                                "failedTransactions", runtimeObservation.failedTransactions(),
+                                "transactionGroups", failedGroups)));
+                failureText.append('\n').append(runtimeFailureText(failedGroups));
+            }
         }
         String suppliedLog = request.logText();
-        if (suppliedLog.isBlank() && request.command().isBlank() && request.httpRequest() == null) suppliedLog = readDefaultLog(root);
+        if (suppliedLog.isBlank() && request.command().isBlank() && request.runtimeObservation() == null) suppliedLog = readDefaultLog(root);
         if (!suppliedLog.isBlank()) {
             String safeLog = redactor.redact(limit(suppliedLog, request.outputLimit()));
             failureText.append('\n').append(safeLog);
@@ -76,13 +93,18 @@ public final class DiagnosticEngine {
         String safeFailureText = redactor.redact(failureText.toString());
         JavaStackTraceParser stackParser = new JavaStackTraceParser(); ParsedStackTrace trace = stackParser.parse(safeFailureText);
         ParsedException rootException = trace.rootCause();
-        boolean inputObserved = commandCapture != null || httpCapture != null || !suppliedLog.isBlank();
-        boolean detected = isFailureDetected(commandCapture, httpCapture, suppliedLog);
+        boolean runtimeCandidates = runtimeObservation != null && runtimeObservation.hasExceptionCandidates();
+        boolean runtimeFailure = runtimeObservation != null && runtimeObservation.hasCorrelatedFailure();
+        boolean runtimeCaptureFailed = runtimeObservation != null && !runtimeObservation.captureError().isBlank();
+        boolean inputObserved = commandCapture != null || runtimeObservation != null || !suppliedLog.isBlank();
+        boolean detected = runtimeFailure || isFailureDetected(commandCapture, suppliedLog);
         String exceptionClass = detected && rootException != null ? rootException.exceptionClass() : "";
         String message = detected ? (rootException == null ? firstFailureLine(safeFailureText) : rootException.message()) : "";
         String failureSummary = !inputObserved ? "NO FAILURE INPUT AVAILABLE"
+                : runtimeCaptureFailed && commandCapture == null && suppliedLog.isBlank()
+                    ? "RUNTIME OBSERVATION FAILED: " + limitSummary(runtimeObservation.captureError())
+                : runtimeCandidates && !detected ? "RUNTIME EXCEPTION CANDIDATES OBSERVED"
                 : !detected ? "NO FAILURE REPRODUCED"
-                : httpCapture != null && httpCapture.failed() ? httpFailureSummary(httpCapture, message)
                 : rootException != null ? summary(exceptionClass, message)
                 : commandCapture != null && (commandCapture.exitCode() != 0 || commandCapture.timedOut())
                     ? commandFailureSummary(commandCapture, message)
@@ -143,9 +165,8 @@ public final class DiagnosticEngine {
         return score;
     }
     private String newId() { return "DD-" + java.time.LocalDate.now().toString().replace("-", "") + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase(Locale.ROOT); }
-    private boolean isFailureDetected(CommandCapture command, HttpCapture http, String logText) {
+    private boolean isFailureDetected(CommandCapture command, String logText) {
         if (command != null && (command.exitCode() != 0 || command.timedOut())) return true;
-        if (http != null && http.failed()) return true;
         return !logText.isBlank() && logText.matches("(?is).*(exception|error|failed|failure|connection refused|timed out).*" );
     }
     private String summary(String type, String message) { if (!type.isBlank()) return type + (message.isBlank() ? "" : ": " + message); return message.isBlank() ? "Software failure observed" : message; }
@@ -154,16 +175,24 @@ public final class DiagnosticEngine {
         String detail = message.equals("Software failure observed") ? firstMeaningfulLine(command.stderr(), command.stdout()) : message;
         return "Command failed with exit code " + command.exitCode() + (detail.isBlank() ? "" : ": " + detail);
     }
-    private String httpEvidenceSummary(HttpCapture http) {
-        if (!http.error().isBlank()) return "HTTP " + http.method() + " " + http.sanitizedUri() + " failed before receiving a response";
-        return "HTTP " + http.method() + " " + http.sanitizedUri() + " returned status " + http.statusCode()
-                + " (expected " + http.expectedStatusMin() + "-" + http.expectedStatusMax() + ")";
+    private String runtimeEvidenceSummary(JfrRuntimeObservation observation) {
+        if (!observation.captureError().isBlank()) return "JVM runtime observation failed";
+        return "JVM runtime observation captured " + observation.transactionEvents() + " correlated transactions, "
+                + observation.failedTransactions() + " failed outcomes, " + observation.exceptionEvents() + " exception events and "
+                + observation.errorEvents() + " error events across " + observation.exceptionGroups().size()
+                + " bounded groups";
     }
-    private String httpFailureSummary(HttpCapture http, String message) {
-        if (!http.error().isBlank()) return "HTTP request failed before receiving a response: " + limitSummary(http.error());
-        String detail = message.equals("Software failure observed") ? firstMeaningfulLine(http.responseBody()) : message;
-        return "HTTP request returned status " + http.statusCode() + " (expected " + http.expectedStatusMin() + "-"
-                + http.expectedStatusMax() + ")" + (detail.isBlank() ? "" : ": " + detail);
+    private String runtimeFailureText(List<RuntimeTransactionGroup> groups) {
+        StringBuilder text = new StringBuilder();
+        groups.stream().filter(RuntimeTransactionGroup::failed).limit(20).forEach(group -> {
+            if (!group.exceptionStackTrace().isBlank()) text.append(group.exceptionStackTrace()).append('\n');
+            else if (!group.exceptionClass().isBlank()) text.append(group.exceptionClass()).append(": ")
+                    .append(group.exceptionMessage()).append('\n');
+            else text.append("HTTP transaction failed")
+                    .append(group.statusCode() > 0 ? " with status " + group.statusCode() : "")
+                    .append(group.route().isBlank() ? "" : " at " + group.route()).append('\n');
+        });
+        return text.toString();
     }
     private String firstFailureLine(String text) { return text.lines().map(String::trim).filter(s -> !s.isBlank()).filter(s -> s.matches("(?i).*(exception|error|failed|failure|refused|timed out).*" )).findFirst().map(this::limitSummary).orElse("Software failure observed"); }
     private String firstMeaningfulLine(String... texts) {

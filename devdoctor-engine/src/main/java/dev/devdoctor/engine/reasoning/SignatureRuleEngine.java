@@ -37,6 +37,8 @@ public final class SignatureRuleEngine {
     private boolean isFailureObservation(Evidence evidence) {
         if (evidence.type() == EvidenceType.LOG || evidence.type() == EvidenceType.STACK_TRACE) return true;
         if (evidence.type() == EvidenceType.HTTP) {
+            if (Boolean.TRUE.equals(evidence.metadata().get("outcomeCorrelated"))
+                    && Boolean.TRUE.equals(evidence.metadata().get("failed"))) return true;
             Object status = evidence.metadata().get("statusCode");
             Object minimum = evidence.metadata().get("expectedStatusMin");
             Object maximum = evidence.metadata().get("expectedStatusMax");

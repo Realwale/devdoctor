@@ -1,21 +1,20 @@
 # Threat model
 
-## Assets and trust boundaries
+## Assets and boundaries
 
-Source code, configuration, environment values, command output, HTTP headers/bodies/query values, HTTP responses, logs, credentials, local paths, and diagnostic sessions are sensitive assets. Untrusted inputs include project files, HTTP endpoints and responses, logs containing terminal control codes, user commands, symlinks, crafted stack traces, high-entropy secrets, and future AI output. Collection is trusted only after normalization and redaction.
+Source, configuration, environment values, command output, logs, exception metadata, local paths, JVM recordings, and diagnostic sessions are sensitive. Project files, logs, recordings, target JVMs, symlinks, and explicit commands are untrusted until normalized and redacted.
 
-## Primary threats and controls
+## Controls
 
-* Secret disclosure: key-name, structured-token, credential-URL, private-key, authorization, entropy, and multiline detection; values become characteristics such as presence/length/whitespace. Redaction precedes logs, JSON, persistence, reports, and AI.
-* Command injection: only a user explicitly supplies `--command`; no AI-generated command executes. Process runs with bounded time/output, no interpolation by DevDoctor, and descendant cleanup on timeout.
-* HTTP disclosure and mutation: only a user explicitly supplies `--url`; query values are removed from provenance, request header values/bodies are never persisted, response header values are discarded, and response bodies are bounded and redacted. Non-safe HTTP methods warn because replay may mutate the target.
-* Resource exhaustion: byte/line/file-count limits, ignored build/VCS directories, bounded recursion, connect timeouts, and capped evidence.
-* Path traversal/symlink escape: normalize paths against the project root; do not follow external symlinks for project collection.
-* Terminal/log injection: strip control characters before rendering and use structured logging.
-* Destructive probes: safety policy rejects `REQUIRES_PERMISSION` unless explicitly enabled and always rejects `PROHIBITED`; V1 ships no mutating probes.
-* False diagnosis: competing hypotheses, negative evidence, specificity requirements, healthy fixtures, explicit uncertainty, and coverage-scoped no-failure conclusions.
-* Supply chain: pinned dependency/plugin versions, Maven verification, minimal runtime dependencies, and documented release provenance.
+* Secret disclosure: structured credential/token/private-key detection, characteristic-only environment evidence, redaction before persistence/reporting, and adversarial whole-output tests.
+* Runtime privacy: no bodies, header values, cookies, or query values; no telemetry exporter; temporary JFR is owner-only, bounded to 64 MiB, and deleted after analysis.
+* Runtime safety: generic JFR is used for an already-running uninstrumented JVM. Full outcome instrumentation is opt-in at application startup through `devdoctor run`, avoiding unsafe hot retransformation of a serving application.
+* Command injection: only explicit `--command` or argument-list `devdoctor run -- ...` execution; no AI-generated command and no DevDoctor interpolation.
+* Resource exhaustion: bounded duration/output/group counts/recording size, ignored build/VCS trees, connection timeouts, and capped evidence.
+* Path/symlink escape: normalized project paths and no external symlink traversal during collection.
+* False diagnosis: caught exceptions remain candidates; failed outcomes are separate very-high-strength evidence; healthy fixtures and scope-qualified uncertainty prevent overdiagnosis.
+* Remote access: no implicit remote connector. A user must run DevDoctor on the host or supply an authorized recording/log.
 
 ## Residual risks
 
-Novel secret formats and secrets embedded in arbitrary natural language may evade detectors; defense-in-depth therefore excludes raw values from evidence construction and tests whole output surfaces. User-supplied commands can themselves be destructive: CLI warnings make clear that DevDoctor executes exactly the explicit command, never a generated one.
+Novel secrets in arbitrary exception text may evade detection before the temporary JFR is deleted. Startup instrumentation adds application overhead and may be incompatible with unusual JVM/framework combinations; users can omit `devdoctor run` and use generic JFR/log evidence. Explicit user commands can themselves be destructive.

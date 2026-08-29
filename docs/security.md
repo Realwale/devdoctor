@@ -1,5 +1,7 @@
 # Security
 
-DevDoctor does not modify source, Git, local configuration, containers, or processes. All diagnostic probes are read-only and safety classified. Only explicitly supplied commands and HTTP requests run; HTTP methods such as `POST`, `PUT`, `PATCH`, and `DELETE` can mutate the target application and therefore produce a warning before replay.
+DevDoctor never generates or proxies application traffic and never performs automatic repair. Explicit commands remain user-authorized and bounded. Runtime observation uses JFR and optional startup instrumentation; the full instrumentation agent is not hot-attached to an already-serving JVM.
 
-Redaction is an architectural boundary, not report cleanup. Collectors use `SecretRedactor` before constructing evidence. Tests scan terminal, JSON, saved sessions, logs, and reasoner payloads for seeded secrets. Security issues should be reported privately to maintainers rather than opened with live credentials.
+The runtime agent exports no traces, metrics, or logs, disables network context propagation, and samples spans only during a bounded diagnostic window. It records only normalized route/method, status, trace linkage, duration, dependency shape, and exception metadata—never bodies, header values, cookies, query values, or credentials. Raw JFR exists only inside an owner-readable temporary directory and is deleted after redacted aggregation. Imported recordings remain user-owned.
+
+Redaction precedes evidence construction, JSON, saved sessions, reports, and any future external reasoning. Security issues should be reported privately without live credentials.

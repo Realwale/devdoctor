@@ -1,16 +1,17 @@
 package dev.devdoctor.engine;
 
 import dev.devdoctor.core.model.ProbeSafety;
+import dev.devdoctor.engine.observe.JfrRuntimeObservation;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 
 public record DiagnosticRequest(Path projectRoot, String command, String logText, Map<String, String> environment,
                                 boolean offline, ProbeSafety maximumSafety, Duration commandTimeout, int outputLimit,
-                                boolean automaticCommand, HttpRequestSpec httpRequest) {
+                                JfrRuntimeObservation runtimeObservation) {
     public DiagnosticRequest(Path projectRoot, String command, String logText, Map<String, String> environment,
                              boolean offline, ProbeSafety maximumSafety, Duration commandTimeout, int outputLimit) {
-        this(projectRoot, command, logText, environment, offline, maximumSafety, commandTimeout, outputLimit, false, null);
+        this(projectRoot, command, logText, environment, offline, maximumSafety, commandTimeout, outputLimit, null);
     }
 
     public DiagnosticRequest {

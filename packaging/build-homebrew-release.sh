@@ -32,13 +32,15 @@ trap cleanup EXIT INT TERM
 "$PROJECT_ROOT/mvnw" -q clean verify
 
 install -m 0644 "$PROJECT_ROOT/devdoctor-cli/target/devdoctor.jar" "$STAGING_DIR/devdoctor.jar"
+install -m 0644 "$PROJECT_ROOT/devdoctor-agent-extension/target/devdoctor-agent.jar" "$STAGING_DIR/devdoctor-agent.jar"
+install -m 0644 "$PROJECT_ROOT/devdoctor-agent-extension/target/devdoctor-agent-extension-$VERSION-SNAPSHOT.jar" "$STAGING_DIR/devdoctor-control-agent.jar"
 install -m 0644 "$PROJECT_ROOT/README.md" "$STAGING_DIR/README.md"
 install -m 0644 "$PROJECT_ROOT/LICENSE" "$STAGING_DIR/LICENSE"
 
 MODULES=$("$JAVA_HOME/bin/jdeps" --multi-release 21 --ignore-missing-deps --print-module-deps "$STAGING_DIR/devdoctor.jar")
 "$JAVA_HOME/bin/jlink" \
   --module-path "$JAVA_HOME/jmods" \
-  --add-modules "$MODULES,jdk.crypto.ec" \
+  --add-modules "$MODULES,jdk.attach,jdk.jcmd,jdk.jfr,jdk.crypto.ec" \
   --strip-debug \
   --no-header-files \
   --no-man-pages \
@@ -51,7 +53,7 @@ find "$STAGING_DIR" -type l -exec touch -h -t 202608170000 {} +
 ARCHIVE="$OUTPUT_DIR/devdoctor-$VERSION-macos-x86_64.tar.gz"
 ARCHIVE_TMP="$ARCHIVE.tmp"
 TAR_TMP="$OUTPUT_DIR/devdoctor-$VERSION-macos-x86_64.tar.tmp"
-(cd "$STAGING_DIR" && find LICENSE README.md devdoctor.jar runtime -print | LC_ALL=C sort > archive-files.txt)
+(cd "$STAGING_DIR" && find LICENSE README.md devdoctor.jar devdoctor-agent.jar devdoctor-control-agent.jar runtime -print | LC_ALL=C sort > archive-files.txt)
 COPYFILE_DISABLE=1 tar -cf "$TAR_TMP" --no-recursion -C "$STAGING_DIR" -T "$STAGING_DIR/archive-files.txt"
 gzip -n -9 < "$TAR_TMP" > "$ARCHIVE_TMP"
 rm -f "$TAR_TMP"

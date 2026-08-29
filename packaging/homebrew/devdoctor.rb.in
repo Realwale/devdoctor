@@ -13,9 +13,9 @@ class Devdoctor < Formula
   depends_on :macos
 
   def install
-    raise "This local release was built for Intel Macs" unless Hardware::CPU.intel?
+    raise "This release was built for Intel Macs" unless Hardware::CPU.intel?
 
-    libexec.install "devdoctor.jar", "runtime"
+    libexec.install "devdoctor.jar", "devdoctor-agent.jar", "devdoctor-control-agent.jar", "runtime"
 
     java = libexec/"runtime/bin/java"
     (bin/"devdoctor").write <<~SH

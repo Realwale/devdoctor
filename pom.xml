@@ -4,13 +4,14 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>dev.devdoctor</groupId>
   <artifactId>devdoctor-parent</artifactId>
-  <version>0.1.2-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>DevDoctor</name>
   <description>Evidence-based root-cause diagnostics for software failures</description>
 
   <modules>
     <module>devdoctor-core</module>
+    <module>devdoctor-agent-extension</module>
     <module>devdoctor-engine</module>
     <module>devdoctor-cli</module>
   </modules>
@@ -25,6 +26,8 @@
     <picocli.version>4.7.6</picocli.version>
     <slf4j.version>2.0.16</slf4j.version>
     <logback.version>1.5.16</logback.version>
+    <opentelemetry.version>1.64.0</opentelemetry.version>
+    <opentelemetry.javaagent.version>2.30.0</opentelemetry.javaagent.version>
   </properties>
 
   <licenses>
