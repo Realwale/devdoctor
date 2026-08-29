@@ -6,7 +6,13 @@ import java.time.Duration;
 import java.util.Map;
 
 public record DiagnosticRequest(Path projectRoot, String command, String logText, Map<String, String> environment,
-                                boolean offline, ProbeSafety maximumSafety, Duration commandTimeout, int outputLimit) {
+                                boolean offline, ProbeSafety maximumSafety, Duration commandTimeout, int outputLimit,
+                                boolean automaticCommand, HttpRequestSpec httpRequest) {
+    public DiagnosticRequest(Path projectRoot, String command, String logText, Map<String, String> environment,
+                             boolean offline, ProbeSafety maximumSafety, Duration commandTimeout, int outputLimit) {
+        this(projectRoot, command, logText, environment, offline, maximumSafety, commandTimeout, outputLimit, false, null);
+    }
+
     public DiagnosticRequest {
         projectRoot = projectRoot == null ? Path.of(".").toAbsolutePath().normalize() : projectRoot.toAbsolutePath().normalize();
         command = command == null ? "" : command;

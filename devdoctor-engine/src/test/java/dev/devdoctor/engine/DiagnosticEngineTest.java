@@ -28,7 +28,7 @@ class DiagnosticEngineTest {
     @Test void doesNotManufactureFailureForHealthyProject(@TempDir Path root) throws Exception {
         Files.writeString(root.resolve("pom.xml"), "<project><artifactId>healthy</artifactId><version>1</version></project>");
         var session = new DiagnosticEngine().diagnose(DiagnosticRequest.passive(root, "2026-08-16T10:00:00Z INFO [main] Application started"));
-        assertThat(session.failure().summary()).isEqualTo("NO FAILURE DETECTED"); assertThat(session.rootCauses()).isEmpty(); assertThat(session.hypotheses()).isEmpty();
+        assertThat(session.failure().summary()).isEqualTo("NO FAILURE REPRODUCED"); assertThat(session.rootCauses()).isEmpty(); assertThat(session.hypotheses()).isEmpty();
     }
 
     @Test void successfulBuildOutputWithZeroFailureCountersIsHealthy(@TempDir Path root) throws Exception {
@@ -38,7 +38,7 @@ class DiagnosticEngineTest {
         var session = new DiagnosticEngine().diagnose(new DiagnosticRequest(root, command, "", Map.of(), true,
                 ProbeSafety.PASSIVE, Duration.ofSeconds(2), 100_000));
 
-        assertThat(session.failure().summary()).isEqualTo("NO FAILURE DETECTED");
+        assertThat(session.failure().summary()).isEqualTo("NO FAILURE REPRODUCED");
         assertThat(session.rootCauses()).isEmpty();
     }
 

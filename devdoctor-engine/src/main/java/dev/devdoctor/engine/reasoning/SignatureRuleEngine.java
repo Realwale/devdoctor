@@ -36,6 +36,15 @@ public final class SignatureRuleEngine {
     private String searchText(Evidence evidence) { return evidence.summary() + " " + evidence.metadata(); }
     private boolean isFailureObservation(Evidence evidence) {
         if (evidence.type() == EvidenceType.LOG || evidence.type() == EvidenceType.STACK_TRACE) return true;
+        if (evidence.type() == EvidenceType.HTTP) {
+            Object status = evidence.metadata().get("statusCode");
+            Object minimum = evidence.metadata().get("expectedStatusMin");
+            Object maximum = evidence.metadata().get("expectedStatusMax");
+            return Boolean.TRUE.equals(evidence.metadata().get("timedOut"))
+                    || !String.valueOf(evidence.metadata().getOrDefault("error", "")).isBlank()
+                    || status instanceof Number actual && minimum instanceof Number min && maximum instanceof Number max
+                        && (actual.intValue() < min.intValue() || actual.intValue() > max.intValue());
+        }
         if (evidence.type() != EvidenceType.COMMAND) return false;
         Object exitCode = evidence.metadata().get("exitCode");
         return Boolean.TRUE.equals(evidence.metadata().get("timedOut"))
@@ -43,7 +52,7 @@ public final class SignatureRuleEngine {
     }
     private boolean isDiagnosticInput(Evidence evidence) {
         return switch (evidence.type()) {
-            case COMMAND, STACK_TRACE, LOG, CONFIGURATION, ENVIRONMENT, DEPENDENCY, PORT, DNS, TCP, DATABASE, REDIS, DOCKER, JVM -> true;
+            case COMMAND, HTTP, STACK_TRACE, LOG, CONFIGURATION, ENVIRONMENT, DEPENDENCY, PORT, DNS, TCP, DATABASE, REDIS, DOCKER, JVM -> true;
             default -> false;
         };
     }

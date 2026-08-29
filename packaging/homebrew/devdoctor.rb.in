@@ -33,6 +33,6 @@ class Devdoctor < Formula
     command = "#{bin}/devdoctor diagnose --log #{testpath}/application.log " \
               "--project #{testpath} --offline --no-save"
     output = shell_output(command)
-    assert_match "NO FAILURE DETECTED", output
+    assert_match "NO FAILURE REPRODUCED", output
   end
 end

@@ -6,13 +6,15 @@ DevDoctor answers four auditable questions: what failed, why it failed, what evi
 
 ## V1 users and scope
 
-V1 serves Java 17/21 and Spring Boot developers using Maven or Gradle. Supported evidence sources include command output, log files, stack traces, project metadata, configuration shape, environment characteristics, dependencies, Git, processes, ports, DNS, Docker, PostgreSQL/MySQL, Redis, Kafka, and Flyway. Node, Python, Go, .NET, cloud, and Kubernetes diagnostics are plugin expansion points, not V1 implementations.
+V1 serves Java 17/21 and Spring Boot developers using Maven or Gradle. Supported evidence sources include explicit HTTP request/response reproduction, command output, log files, stack traces, project metadata, configuration shape, environment characteristics, dependencies, Git, processes, ports, DNS, Docker, PostgreSQL/MySQL, Redis, Kafka, and Flyway. Node, Python, Go, .NET, cloud, and Kubernetes diagnostics are plugin expansion points, not V1 implementations.
 
 ## User journeys
 
 * `devdoctor diagnose` automatically runs the detected Maven/Gradle test command when no explicit command or log is supplied, then diagnoses the captured exit code and output.
 * `devdoctor diagnose --command "./mvnw test"` captures bounded output, exit code, and duration before diagnosis.
 * `devdoctor diagnose --log application.log` analyzes a supplied log.
+* `devdoctor diagnose --url ... --method POST --header ... --data-file ...` reproduces a Postman-style request, evaluates its expected status, and captures bounded redacted response evidence.
+* A passed build/test task is never described as proof of runtime or API health; every no-failure conclusion states its observed scope.
 * `--offline` disables optional external reasoning; deterministic diagnosis remains complete.
 * `--json` emits schema-versioned, evidence-linked output.
 * `--no-auto-command` disables automatic build execution; absence of command/log evidence is reported as unknown, never healthy.
@@ -28,6 +30,7 @@ V1 serves Java 17/21 and Spring Boot developers using Maven or Gradle. Supported
 5. Low evidence produces explicit uncertainty, not a guessed root cause.
 6. Probes are read-only and safety classified. V1 never repairs, restarts, kills, commits, or mutates infrastructure.
 7. Deterministic rules and probes work offline and take precedence over unsupported AI suggestions.
+8. A successful observation supports only the behavior actually exercised; build success never implies runtime/API health.
 
 ## Success measures
 

@@ -11,7 +11,25 @@ export JAVA_HOME=/path/to/jdk-21
 ./devdoctor diagnose --json
 ```
 
-When no `--command` or `--log` is supplied, `devdoctor diagnose` now runs the detected Maven or Gradle test command and diagnoses its exit code and bounded output. Use `--no-auto-command` when you only want already-available evidence; DevDoctor will report that no failure input was observed instead of claiming the project is healthy.
+When no explicit evidence is supplied, `devdoctor diagnose` runs the detected Maven or Gradle test command. A successful build is reported only as a passed build/test check; DevDoctor explicitly states that runtime and API behavior were not exercised and never equates that result with application health.
+
+## Reproduce a Postman/API failure
+
+Replay the failing request against the running application:
+
+```bash
+devdoctor diagnose \
+  --url http://localhost:8080/api/orders \
+  --method POST \
+  --header "Content-Type: application/json" \
+  --header-env "Authorization=AUTHORIZATION_HEADER" \
+  --data-file request.json \
+  --expect-status 200-299
+```
+
+Add `--log application.log` to correlate the HTTP response with server-side log evidence in the same session. Set `AUTHORIZATION_HEADER` to the complete header value (for example, `Bearer …`). Header values, request bodies, URL query values, and response bodies are retained only in memory long enough to execute the request; persisted evidence contains header names, a query-free URL, status/timing, and a redacted bounded response. Prefer `--header-env` and `--data-file`; inline `--header`/`--data` values may remain visible in shell history or process arguments.
+
+Only requests explicitly supplied with `--url` are sent. Replaying `POST`, `PUT`, `PATCH`, or `DELETE` can mutate the target system just as it can in Postman; DevDoctor warns before executing those methods. Use `--no-auto-command` to disable the default build/test check when no request, command, or log is supplied.
 
 DevDoctor observes a failure, gathers sanitized evidence, generates competing hypotheses, runs safe diagnostic probes, rules out explanations, and emits an auditable diagnostic graph. It is an offline-first diagnostic engine—not a coding agent, chatbot, repair tool, or monitoring service.
 
@@ -37,6 +55,6 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./packaging/build-homebrew-release.sh
 
 The Intel macOS package includes a minimized Java 21 runtime, so the installed command does not depend on `JAVA_HOME`, Xcode, or a separate JDK formula. See `packaging/homebrew/README.md` for local verification and public-tap publishing instructions.
 
-The V1 target is Java 17/21 and Spring Boot projects using Maven or Gradle, with focused diagnostics for configuration, dependencies, databases, networking, Docker, Redis, Kafka, Flyway, and JVM failures. Raw secrets are redacted before logging, persistence, reporting, or optional external reasoning.
+The V1 target is Java 17/21 and Spring Boot projects using Maven or Gradle, with focused diagnostics for runtime HTTP responses, configuration, dependencies, databases, networking, Docker, Redis, Kafka, Flyway, and JVM failures. Raw secrets are redacted before logging, persistence, reporting, or optional external reasoning.
 
 See [product specification](docs/product-spec.md), [architecture](docs/architecture.md), and [implementation status](docs/implementation-plan.md).

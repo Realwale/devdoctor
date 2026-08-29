@@ -8,5 +8,6 @@ The following capabilities are deliberately not represented as complete:
 * Kafka has deterministic failure signatures and generic DNS/TCP probes, but no Kafka protocol handshake probe.
 * The optional external AI adapter has only its sanitized SPI. No provider is bundled, preserving offline-first behavior and explicit-consent requirements.
 * Testcontainers is reserved for future database/Docker protocol integration tests; current tests require no local daemon and remain deterministic.
+* HTTP reproduction executes one explicitly described request. DevDoctor does not import Postman collections/environments, run Postman scripts, infer an unseen prior request, or certify endpoints that were not exercised.
 
 These gaps do not use placeholder return values. Reports retain categorical uncertainty and expose probe scope/limitations in evidence metadata.

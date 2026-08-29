@@ -6,14 +6,25 @@ import java.io.PrintWriter;
 public final class TerminalReport {
     public void write(DiagnosticSession session, PrintWriter out, boolean verbose) {
         out.println("DEVDOCTOR"); out.println("Diagnostic ID: " + session.diagnosticId()); out.println();
-        section(out, "FAILURE"); out.println(session.failure().summary());
+        boolean noFailure = session.failure().summary().equals("NO FAILURE REPRODUCED");
+        boolean noInput = session.failure().summary().equals("NO FAILURE INPUT AVAILABLE");
+        section(out, noFailure || noInput ? "OBSERVED RESULT" : "FAILURE"); out.println(session.failure().summary());
         if (session.rootCauses().isEmpty()) {
             out.println();
-            if (session.failure().summary().equals("NO FAILURE INPUT AVAILABLE")) {
+            if (noInput) {
                 out.println("DevDoctor did not run a command or find a diagnostic log.");
-                out.println("Run this from a Maven/Gradle project, or pass --command or --log explicitly.");
-            } else if (session.failure().summary().equals("NO FAILURE DETECTED")) {
-                out.println("The observed command and log evidence completed without a failure.");
+                out.println("Pass --command, --log, or --url to reproduce the actual failing behavior.");
+            } else if (noFailure && hasAutomaticBuild(session)) {
+                out.println("BUILD/TEST CHECK PASSED");
+                out.println("The detected Maven/Gradle test command completed successfully.");
+                out.println("Runtime and API behavior were not exercised; this is not evidence that the application is healthy.");
+                out.println("Replay the failing Postman request with --url, --method, --header and --data/--data-file.");
+            } else if (noFailure && hasHttpEvidence(session)) {
+                out.println("The supplied HTTP request returned an expected status.");
+                out.println("This conclusion applies only to that request and does not certify the whole application.");
+            } else if (noFailure) {
+                out.println("No failure was reproduced by the supplied command or log evidence.");
+                out.println("This conclusion applies only to the observed input, not the whole application.");
             } else {
                 out.println("FAILURE CONFIRMED, BUT NO HIGH-CONFIDENCE ROOT CAUSE FOUND");
             }
@@ -27,6 +38,13 @@ public final class TerminalReport {
         }
         if (verbose) { section(out, "PROBES"); session.probes().forEach(p -> out.println(p.probeId() + "  " + p.status() + " - " + p.summary())); out.println(); out.println("Graph: " + session.graph().nodes().size() + " nodes, " + session.graph().edges().size() + " edges"); }
         out.flush();
+    }
+    private boolean hasAutomaticBuild(DiagnosticSession session) {
+        return session.evidence().stream().anyMatch(e -> e.type() == EvidenceType.COMMAND
+                && "AUTOMATIC_BUILD".equals(e.metadata().get("origin")));
+    }
+    private boolean hasHttpEvidence(DiagnosticSession session) {
+        return session.evidence().stream().anyMatch(e -> e.type() == EvidenceType.HTTP);
     }
     private void section(PrintWriter out, String title) { out.println(); out.println("=============================================="); out.println(title); out.println("=============================================="); }
 }
