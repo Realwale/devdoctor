@@ -5,9 +5,9 @@
 class Devdoctor < Formula
   desc "Evidence-based root-cause diagnostics for software failures"
   homepage "https://github.com/Realwale/devdoctor"
-  url "https://github.com/Realwale/devdoctor/releases/download/v0.1.1/devdoctor-0.1.1-macos-x86_64.tar.gz"
-  version "0.1.1"
-  sha256 "b6b25644aa45fff3ef27f161f90ef82530ac29b96c984ca3da688d95676052ec"
+  url "https://github.com/Realwale/devdoctor/releases/download/v0.1.2/devdoctor-0.1.2-macos-x86_64.tar.gz"
+  version "0.1.2"
+  sha256 "b561f8946ecf13b77d3810f624abdd37804fd85a45e3b2a2904deb0585976834"
   license "Apache-2.0"
 
   depends_on :macos
@@ -25,7 +25,7 @@ class Devdoctor < Formula
   end
 
   test do
-    assert_match "DevDoctor 0.1.1", shell_output("#{bin}/devdoctor version")
+    assert_match "DevDoctor 0.1.2", shell_output("#{bin}/devdoctor version")
 
     (testpath/"application.log").write <<~LOG
       2026-08-17T00:00:00Z INFO [main] Application started successfully
@@ -33,6 +33,6 @@ class Devdoctor < Formula
     command = "#{bin}/devdoctor diagnose --log #{testpath}/application.log " \
               "--project #{testpath} --offline --no-save"
     output = shell_output(command)
-    assert_match "NO FAILURE DETECTED", output
+    assert_match "NO FAILURE REPRODUCED", output
   end
 end
