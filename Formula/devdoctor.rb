@@ -7,7 +7,7 @@ class Devdoctor < Formula
   homepage "https://github.com/Realwale/devdoctor"
   url "https://github.com/Realwale/devdoctor/releases/download/v0.2.0/devdoctor-0.2.0-macos-x86_64.tar.gz"
   version "0.2.0"
-  sha256 "e036b47b77cda3c067d2a1da5eb8553957f63e79023897799b0519e6badbb6bb"
+  sha256 "ef051a943019f5bfcceab63d1f0cc4170ba231ed449b5ae7deb7bbd7f8213d75"
   license "Apache-2.0"
 
   depends_on :macos
